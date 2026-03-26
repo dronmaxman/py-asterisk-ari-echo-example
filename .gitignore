@@ -1,0 +1,29 @@
+# Python bytecode/cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor artifacts
+.DS_Store
+.idea/
+.vscode/
+
+# Local runtime/output files
+*.wav
+*.log
+
+# Cursor local metadata
+.cursor/
+
+# Copied Asterisk ARI API docs snapshot (usually not needed in repo)
+ari_api_docs/
+
