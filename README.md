@@ -25,7 +25,6 @@ Built for Asterisk ARI with REST + WebSocket events.
 
 - `ari_wait_record_play.py` — main client script
 - `.env` — ARI credentials and defaults
-- `ari_api_docs/` — copied ARI API docs from your server
 
 ## Requirements
 
