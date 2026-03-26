@@ -1,29 +1,29 @@
-# ARI Wait → Record → Play → Hangup
+# ARI Wait -> Record -> Play -> Hangup
 
 Python ARI client that:
 
 1. waits for an incoming call in a Stasis app,
-2. records 5 seconds to WAV,
-3. plays the recording back to the same channel,
+2. records 5 seconds to local WAV in Python (RTP capture),
+3. plays the same WAV back into the bridge via RTP,
 4. hangs up the call,
 5. repeats in loop mode.
 
-Built for Asterisk ARI with REST + WebSocket events.
+Built for Asterisk ARI with REST + WebSocket events + `externalMedia`.
 
 ## Features
 
 - Waits for `StasisStart` via `/ari/events?app=<app>`
-- Creates a `mixing` bridge and adds incoming channel
-- Records bridge audio via `POST /bridges/{bridgeId}/record`
-- Waits for `RecordingFinished`
-- Downloads WAV via `GET /recordings/stored/{recordingName}/file`
-- Plays back using `POST /channels/{channelId}/play?media=recording:<name>`
-- Waits for `PlaybackFinished`
+- Answers incoming channel via ARI
+- Creates bridge and adds caller + `externalMedia` channel
+- Receives RTP in Python and writes WAV locally
+- Sends RTP (WAV playback) from Python back into Asterisk bridge
+- Optional RTP pre-roll and softmix forcing mode
 - Hangs up channel and cleans bridge
 
 ## Project Files
 
-- `ari_wait_record_play.py` — main client script
+- `ari_wait_record_play.py` — main script (`externalMedia` RTP capture/playback)
+- `ari_echo_file.py` — simpler ARI echo/record-play helper script
 - `.env` — ARI credentials and defaults
 
 ## Requirements
@@ -42,20 +42,25 @@ Script auto-loads `.env` from project root.
 Example:
 
 ```env
-ARI_BASE_URL=https://ari.example.com:8089
-ARI_MEDIA_APP=extmedia-ai
-ARI_USER=ai_user
-ARI_PASS=your_password
-ARI_VERIFY_SSL=0
+ARI_BASE_URL=https://your-asterisk-host:8089
+ARI_USER=your_ari_user
+ARI_PASS=your_ari_password
+ARI_VERIFY_SSL=1
+
+STASIS_APP=extmedia-ai
+BRIDGE_TYPE=mixing,proxy_media
+
+RTP_INJECT_HOST=
+RTP_INJECT_PORT=0
+RTP_PREROLL_MS=800
+CONF_FORCE_SOFTMIX=0
+CONF_HELPER_EXTERNAL_HOST=127.0.0.1:9
 ```
 
 Notes:
 
 - `ARI_BASE_URL` may be with or without `/ari` (script handles both).
-- Current default Stasis app in script comes from:
-  1. `STASIS_APP` (if present),
-  2. otherwise `EXT_MEDIA_APP`,
-  3. fallback: `extmedia-ai`.
+- `STASIS_APP` is app for incoming call events (`StasisStart`).
 - If `ARI_VERIFY_SSL=0`, SSL verification is disabled and warning is suppressed.
 
 ## Run
@@ -88,22 +93,45 @@ python ari_wait_record_play.py \
 - `--ari-pass` — ARI password
 - `--verify-ssl` — enable SSL verification explicitly
 - `--stasis-app` — Stasis app to subscribe for `StasisStart`
+- `--bridge-type` — bridge type attributes for ARI create bridge (default `mixing,proxy_media`), supports alias `softmix` -> `mixing,dtmf_events`
 - `--record-seconds` — recording duration (default `5`)
 - `--wav-out` — local output WAV path (default `./ari_loopback_record.wav`)
+- `--media-app` — app for `externalMedia` channel (default from `ARI_MEDIA_APP`)
+- `--rtp-advertise-host` — IP/host where Asterisk sends RTP to Python
+- `--rtp-port` — UDP port for RTP receive in Python
+- `--rtp-bind-host` — local bind host for RTP socket (`0.0.0.0` by default)
+- `--ext-media-format` — codec for externalMedia (`alaw` or `ulaw`)
+- `--rtp-inject-host` — force Python->Asterisk RTP destination IP (override ARI var)
+- `--rtp-inject-port` — force Python->Asterisk RTP destination port (`0` = ARI var)
+- `--rtp-preroll-ms` — send RTP silence before record/play to warm up symmetric RTP (default `800`)
+- `--conf-force-softmix` — add helper channel to force 3-party conference behavior
+- `--conf-helper-external-host` — helper externalMedia target (default `127.0.0.1:9`)
 - `--once` — process one call and exit
 
 ## Runtime Flow
 
 1. Connect WebSocket to ARI events.
-2. Wait `StasisStart`.
-3. Create bridge and add channel.
-4. Start bridge recording (`wav`, `maxDurationSeconds=5`).
-5. Wait `RecordingFinished`.
-6. Download recorded WAV locally.
-7. Play recording back to same channel.
-8. Wait `PlaybackFinished`.
-9. Hang up channel.
-10. Delete bridge.
+2. Wait `StasisStart` and answer channel.
+3. Create bridge and add caller channel.
+4. Create/add externalMedia channel.
+5. (Optional) send short RTP pre-roll to warm up path.
+6. Capture RTP from Asterisk in Python for N seconds and save WAV.
+7. Send WAV back as RTP from Python into bridge.
+8. Hang up caller and cleanup bridge/channels.
+
+## `ari_echo_file.py`
+
+`ari_echo_file.py` is a secondary helper script for ARI media tests.
+
+- Purpose: quick echo/record-play experiments.
+- Typical use: compare behavior with the main `ari_wait_record_play.py` flow.
+- Run:
+
+```bash
+python ari_echo_file.py
+```
+
+If both scripts are present, prefer `ari_wait_record_play.py` for the production-like flow (externalMedia + RTP capture/playback in Python).
 
 ## Troubleshooting
 
