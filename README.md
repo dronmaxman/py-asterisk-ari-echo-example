@@ -22,8 +22,8 @@ Built for Asterisk ARI with REST + WebSocket events + `externalMedia`.
 
 ## Project Files
 
-- `ari_wait_record_play.py` — main script (`externalMedia` RTP capture/playback)
-- `ari_echo_file.py` — simpler ARI echo/record-play helper script
+- `ari_echo_exMedia_play.py` — standalone script (`externalMedia` RTP capture/playback in Python)
+- `ari_echo_file_play.py` — standalone script (Asterisk-side record/playback flow)
 - `.env` — ARI credentials and defaults
 
 ## Requirements
@@ -68,19 +68,19 @@ Notes:
 ### Loop mode (default)
 
 ```bash
-python ari_wait_record_play.py
+python ari_echo_exMedia_play.py
 ```
 
 ### One call only
 
 ```bash
-python ari_wait_record_play.py --once
+python ari_echo_exMedia_play.py --once
 ```
 
 ### Custom parameters
 
 ```bash
-python ari_wait_record_play.py \
+python ari_echo_exMedia_play.py \
   --stasis-app extmedia-ai \
   --record-seconds 5 \
   --wav-out ./ari_loopback_record.wav
@@ -119,19 +119,21 @@ python ari_wait_record_play.py \
 7. Send WAV back as RTP from Python into bridge.
 8. Hang up caller and cleanup bridge/channels.
 
-## `ari_echo_file.py`
+## `ari_echo_file_play.py`
 
-`ari_echo_file.py` is a secondary helper script for ARI media tests.
+`ari_echo_file_play.py` is a standalone ARI script for media tests.
 
 - Purpose: quick echo/record-play experiments.
-- Typical use: compare behavior with the main `ari_wait_record_play.py` flow.
+- `ari_echo_file_play.py` records call audio on Asterisk and then plays it back on Asterisk (server-side media path).
+- `ari_echo_exMedia_play.py` uses `externalMedia` in both directions, i.e. Python receives RTP from Asterisk and sends RTP back to Asterisk.
+- Typical use: compare pure Asterisk media path vs externalMedia/Python media path.
 - Run:
 
 ```bash
-python ari_echo_file.py
+python ari_echo_file_play.py
 ```
 
-If both scripts are present, prefer `ari_wait_record_play.py` for the production-like flow (externalMedia + RTP capture/playback in Python).
+If both scripts are present, prefer `ari_echo_exMedia_play.py` for the production-like flow (externalMedia + RTP capture/playback in Python).
 
 ## Troubleshooting
 
